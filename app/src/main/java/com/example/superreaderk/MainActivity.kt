@@ -54,9 +54,7 @@ class MainActivity : ComponentActivity() {
                         // Кнопка для запуска Reading
                         if (isReadingVisible) {
                             Reading(pose = pos)
-                            Button(onClick = { isPaused = !isPaused
-
-                            }) {
+                            Button(onClick = { isPaused = !isPaused }) {
                                 Text(if (isPaused) "Resume" else "Pause")
                             }
                         }
