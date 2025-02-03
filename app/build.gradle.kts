@@ -49,6 +49,8 @@ android {
     }
 }
 
+
+
 dependencies {
 
     implementation(libs.androidx.core.ktx)
@@ -59,6 +61,11 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+    implementation ("androidx.core:core-ktx:1.12.0")
+    implementation ("androidx.compose.ui:ui:1.5.1")
+    implementation("org.jsoup:jsoup:1.16.2")
+    //implementation ("org.readium.r2-streamer-kotlin:r2-streamer:2.0.0")
+    //implementation ("org.readium.r2-shared-kotlin:r2-shared:2.0.0")
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
