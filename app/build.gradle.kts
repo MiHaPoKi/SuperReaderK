@@ -50,7 +50,6 @@ android {
 }
 
 
-
 dependencies {
 
     implementation(libs.androidx.core.ktx)
@@ -64,6 +63,7 @@ dependencies {
     implementation ("androidx.core:core-ktx:1.12.0")
     implementation ("androidx.compose.ui:ui:1.5.1")
     implementation("org.jsoup:jsoup:1.16.2")
+    implementation("com.github.mertakdut:EpubParser:1.0.95")
     //implementation ("org.readium.r2-streamer-kotlin:r2-streamer:2.0.0")
     //implementation ("org.readium.r2-shared-kotlin:r2-shared:2.0.0")
     testImplementation(libs.junit)

@@ -1,8 +1,10 @@
 package com.example.superreaderk
 
+//import com.github.mertakdut.Book
 import android.content.Context
 import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -10,6 +12,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.absoluteOffset
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -23,7 +26,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -31,14 +33,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.superreaderk.ui.theme.SuperReaderKTheme
-import kotlinx.coroutines.Dispatchers
+import com.github.mertakdut.Reader
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import org.jsoup.Jsoup
-import java.io.BufferedReader
-import java.io.InputStreamReader
-import java.util.zip.ZipInputStream
+import java.io.File
+import java.io.FileOutputStream
+import java.io.InputStream
 
 
 class MainActivity : ComponentActivity() {
@@ -80,11 +79,20 @@ class MainActivity : ComponentActivity() {
 
                         Spacer(modifier = Modifier.height(16.dp))
                         EpubReader()
+                        Spacer(modifier = Modifier.height(128.dp))
+                        //if(prevMS == maxSections)
+
                     }
                 }
             }
         }
     }
+    var book: String = "" //"Lorem ipsum is a dummy text. Not much to know about it. A guy in 1500s or like that invented it to test his fonts. It remains popular to these days." //fileContent
+    var pos: Long by mutableStateOf(100)
+    var elem: Int = 0
+    var isPaused by mutableStateOf(false)
+    var maxSections: Int by mutableStateOf(5)
+    var prevMS: Int by mutableStateOf(maxSections - 5)
 
     var fileContent: String by mutableStateOf("")
         private set
@@ -94,13 +102,22 @@ class MainActivity : ComponentActivity() {
         val launcher = rememberLauncherForActivityResult(
             contract = ActivityResultContracts.OpenDocument(),
             onResult = { uri ->
-                // Возвращаем выбранный URI
+                if (uri != null) {
+                    Log.d("DEBUGGIE", "EPUB FILE PICKED: $uri")
+                } else {
+                    Log.d("DEBUGGIE", "NO FILE SELECTED")
+                }
                 onFileSelected(uri)
             }
         )
 
         Button(onClick = {
-            launcher.launch(arrayOf("application/epub+zip"))
+            try {
+                Log.d("DEBUGGIE", "PICK FILE BUTTON CLICKED")
+                launcher.launch(arrayOf("application/epub+zip"))
+            } catch (e: Exception) {
+                Log.e("DEBUGGIE", "File picker crashed: ${e.localizedMessage}", e)
+            }
         }) {
             Text("Выбрать .epub файл")
         }
@@ -109,26 +126,34 @@ class MainActivity : ComponentActivity() {
     @Composable
     fun EpubReader() {
         val context = LocalContext.current
-        val cs = rememberCoroutineScope()
+        //val cs = rememberCoroutineScope()
         //var fileContent by remember { mutableStateOf("") }  // Состояние для контента книги
 
         EpubPicker { uri ->
-            uri?.let {itUri ->
-                cs.launch {
+            Log.d("DEBUGGIE", "LOG 1")
+            uri?.let {
+                Log.d("DEBUGGIE", "LOG 2")
+                Log.d("DEBUGGIE", "EPUB URI: $it")
+
+                //cs.launch {
                     // Получаем текст из EPUB по URI и обновляем состояние
-                    val text = extractEPUBTextFromUri(context, itUri).joinToString("\n")
-                    fileContent = text
+                try {
+                    Log.d("DEBUGGIE", "EPUB URI: $it")
+                    var text = extractTextFromEPUB(context, it)
+                    Log.d("DEBUGGIE", "TEXT VARIABLE ASSIGNED, value - $text")
+                    book = text
+                    Log.d("DEBUGGIE", "CLASS VARIABLE CHANGED, Value - $book")
+                } catch (e: Exception) {
+                    Log.e("DEBUGGIE", "Error reading EPUB: ${e.localizedMessage}", e)
                 }
+                //}
             }
         }
     }
 
-    var book: String = fileContent.toString()//"Lorem ipsum is a dummy text. Not much to know about it. A guy in 1500s or like that invented it to test his fonts. It remains popular to these days." //fileContent
-    var pos: Long by mutableStateOf(100)
-    var elem: Int = 0
-    var isPaused by mutableStateOf(false)
-    var bufferVar = ""
-    var counter = 0
+
+    //var bufferVar = ""
+    //var counter = 0
 
     @Composable
     fun Slider() {
@@ -151,18 +176,19 @@ class MainActivity : ComponentActivity() {
         LaunchedEffect(book) {
             //var localCounter = 0
             //var bufferWord = ""
-            var splitted = book.split(' ')
-//            while(localCounter % 100 != 0){
+            var splitted = book.split(' ', '.')//: MutableList<String> = mutableListOf()
+//            while(localCounter % 100 != 0 || localCounter == 0){
 //                for(x in book){
 //                    if (x != ' ') {
 //                        bufferWord += x
 //                    }
 //                    if (x == ' ') {
-//                        bufferWord += x
+//                        splitted.add(bufferWord)
 //                        localCounter++
 //                    }
 //                }
 //            }
+
 
             while (elem < splitted.size) {
                 if (!isPaused) {
@@ -171,6 +197,8 @@ class MainActivity : ComponentActivity() {
                 }
                 delay(pose)
             }
+
+
         }
 
         Surface() {
@@ -181,26 +209,6 @@ class MainActivity : ComponentActivity() {
             )
         }
     }
-
-    fun seper(): MutableList<String> {
-        var localCounter = 0
-        var bufferWord = ""
-        var splitter: MutableList<String> = mutableListOf()
-        while(localCounter % 100 != 0){
-            for(x in book){
-                if (x != ' ') {
-                    bufferWord += x
-                }
-                if (x == ' ') {
-                    //bufferWord += x
-                    localCounter++
-                }
-            }
-            splitter += bufferWord
-        }
-        return splitter
-    }
-
 
     @Composable
     fun fileWriter(data: String, fileName: String){
@@ -222,35 +230,77 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    fun extractEPUBTextFromUri(context: Context, epubUri: Uri): List<String> {
-        val texts = mutableListOf<String>()
-        //var counter = 0
+    fun extractTextFromEPUB(context: Context, epubUri: Uri): String {
+        return try {
+            Log.d("DEBUGGIE", "Начинаем обработку EPUB: $epubUri")
 
-        // Открываем EPUB через URI
-        context.contentResolver.openInputStream(epubUri)?.use { inputStream ->
-            // Используем ZipInputStream для распаковки
-            val zipStream = ZipInputStream(inputStream)
-            var entry = zipStream.nextEntry
-
-            while (entry != null) {
-                // Ищем файлы с расширением .xhtml или .html
-                if (entry.name.endsWith(".xhtml") || entry.name.endsWith(".html")) {
-                    val htmlContent = zipStream.bufferedReader().use { it.readText() }
-                    // Извлекаем текст из HTML
-                    texts.add(extractTextFromHTML(htmlContent))
+            // 1. Копируем файл во временную папку
+            val tempFile = File.createTempFile("temp_epub", ".epub", context.cacheDir)
+            context.contentResolver.openInputStream(epubUri)?.use { input ->
+                FileOutputStream(tempFile).use { output ->
+                    input.copyTo(output)
                 }
-                // Переходим к следующему файлу в архиве
-                entry = zipStream.nextEntry
+            } ?: return "Ошибка: не удалось открыть EPUB"
+
+            Log.d("DEBUGGIE", "Файл скопирован: ${tempFile.absolutePath}")
+
+            // 2. Настраиваем ридер
+            val reader = Reader()
+            reader.setMaxContentPerSection(5000)  // Больше символов в секции
+            reader.setIsIncludingTextContent(true)
+            reader.setFullContent(tempFile.absolutePath)
+
+            Log.d("DEBUGGIE", "EPUB загружен, начинаем чтение секций...")
+
+            // 3. Читаем ВСЕ секции, пока не выйдет ошибка
+            val textContent = StringBuilder()
+            var sectionIndex = 0
+            var emptySectionCount = 0  // Считаем подряд идущие пустые секции
+
+            while (true) {
+                try {
+                    val section = reader.readSection(sectionIndex)  // Читаем секцию
+                    val sectionText = section?.sectionTextContent  // Получаем текст
+
+                    if (!sectionText.isNullOrBlank()) {
+                        // Если есть текст, добавляем в итоговый результат
+                        textContent.append(sectionText).append("\n\n")
+                        Log.d("DEBUGGIE", "Секция $sectionIndex загружена, размер: ${sectionText.length} символов")
+
+                        emptySectionCount = 0  // Обнуляем счётчик пустых секций
+                    } else {
+                        // Если секция пустая, увеличиваем счётчик
+                        Log.d("DEBUGGIE", "Секция $sectionIndex пустая, пропускаем...")
+                        emptySectionCount++
+                    }
+
+                    sectionIndex++
+
+                    // Если встречаем 10 пустых секций подряд — скорее всего, книга закончилась
+                    if (emptySectionCount >= 10) {
+                        Log.d("DEBUGGIE", "10 пустых секций подряд, вероятно конец книги")
+                        break
+                    }
+                } catch (e: IndexOutOfBoundsException) {
+                    Log.d("DEBUGGIE", "Достигнут конец книги на секции $sectionIndex")
+                    break
+                } catch (e: Exception) {
+                    Log.e("DEBUGGIE", "Ошибка при чтении секции $sectionIndex: ${e.localizedMessage}", e)
+                    break
+                }
             }
+
+            // 4. Возвращаем текст или сообщение об ошибке
+            return if (textContent.isNotEmpty()) textContent.toString() else "Ошибка: книга пустая или не распознана"
+        } catch (e: Exception) {
+            Log.e("DEBUGGIE", "Ошибка при чтении EPUB: ${e.localizedMessage}", e)
+            "Ошибка при чтении EPUB"
         }
-
-        return texts
     }
 
-    // Простейший парсер текста из HTML
-    fun extractTextFromHTML(html: String): String {
-        return html.replace(Regex("<[^>]*>"), "").trim() // Убираем все теги
-    }
+
+
+
 
 
 }
