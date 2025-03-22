@@ -11,9 +11,10 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.absoluteOffset
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
@@ -37,7 +38,7 @@ import com.github.mertakdut.Reader
 import kotlinx.coroutines.delay
 import java.io.File
 import java.io.FileOutputStream
-import java.io.InputStream
+import org.jsoup.Jsoup
 
 
 class MainActivity : ComponentActivity() {
@@ -65,14 +66,14 @@ class MainActivity : ComponentActivity() {
                         if (isReadingVisible) {
                             Reading(pose = pos)
                             Button(onClick = { isPaused = !isPaused }) {
-                                Text(if (isPaused) "Resume" else "Pause")
+                                Text(if (isPaused) "Продолжить" else "Пауза")
                             }
                         }
                         Button(onClick = { isReadingVisible = !isReadingVisible }) {
                             if (isReadingVisible) {
-                                Text("Stop reading")
+                                Text("Приостановить чтение")
                             } else {
-                                Text("Start reading")
+                                Text("Начать чтение")
                             }
                             //isPaused = false
                         }
@@ -91,8 +92,8 @@ class MainActivity : ComponentActivity() {
     var pos: Long by mutableStateOf(100)
     var elem: Int = 0
     var isPaused by mutableStateOf(false)
-    var maxSections: Int by mutableStateOf(5)
-    var prevMS: Int by mutableStateOf(maxSections - 5)
+    //var currentSectionIndex = 0
+
 
     var fileContent: String by mutableStateOf("")
         private set
@@ -165,7 +166,7 @@ class MainActivity : ComponentActivity() {
             steps = ((2000 - 100) / 50).toInt() - 1, // Дискретные шаги
             modifier = Modifier.padding(20.dp)
         )
-        Text(text = "${position.toLong()} ms interval")
+        Text(text = "Интервал: ${position.toLong()} мс")
         pos = position.toLong()
     }
 
@@ -173,39 +174,43 @@ class MainActivity : ComponentActivity() {
     @Composable
     fun Reading(pose: Long, modifier: Modifier = Modifier) {
         var disp by remember { mutableStateOf("") }
-        LaunchedEffect(book) {
-            //var localCounter = 0
-            //var bufferWord = ""
-            var splitted = book.split(' ', '.')//: MutableList<String> = mutableListOf()
-//            while(localCounter % 100 != 0 || localCounter == 0){
-//                for(x in book){
-//                    if (x != ' ') {
-//                        bufferWord += x
-//                    }
-//                    if (x == ' ') {
-//                        splitted.add(bufferWord)
-//                        localCounter++
-//                    }
-//                }
-//            }
+        var currentSectionIndex by remember { mutableStateOf(0) } // Индекс текущей секции
+        val splittedSections = book.split("\n\n") // Разделяем книгу на секции
 
+        LaunchedEffect(currentSectionIndex) {
+            val words = splittedSections.getOrNull(currentSectionIndex)?.split(' ', '.') ?: listOf()
+            var localIndex = 0
 
-            while (elem < splitted.size) {
+            while (localIndex < words.size) {
                 if (!isPaused) {
-                    disp = splitted[elem]
-                    elem++
+                    disp = words[localIndex]
+                    localIndex++
+                    elem = localIndex // Обновляем глобальную переменную
                 }
                 delay(pose)
             }
-
-
         }
 
-        Surface() {
-            Text(
-                text = disp,
-                fontSize = 36.sp,
-                modifier = Modifier
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Surface {
+                Text(
+                    text = disp,
+                    fontSize = 36.sp,
+                    modifier = Modifier
+                )
+            }
+
+            NavigationButtons(
+                onPrevious = {
+                    if (currentSectionIndex > 0) {
+                        currentSectionIndex-- // Переход назад
+                    }
+                },
+                onNext = {
+                    if (currentSectionIndex < splittedSections.size - 1) {
+                        currentSectionIndex++ // Переход вперёд
+                    }
+                }
             )
         }
     }
@@ -218,7 +223,7 @@ class MainActivity : ComponentActivity() {
             saveToFile(context, fileName, data)
         }
     }
-    
+
     private fun saveToFile(context: Context, fileName: String, data: String) {
         try {
             // Открываем файл для записи
@@ -229,60 +234,49 @@ class MainActivity : ComponentActivity() {
             e.printStackTrace() // Логирование ошибки
         }
     }
+    //var sectionIndex = 0
 
     fun extractTextFromEPUB(context: Context, epubUri: Uri): String {
         return try {
             Log.d("DEBUGGIE", "Начинаем обработку EPUB: $epubUri")
 
-            // 1. Копируем файл во временную папку
             val tempFile = File.createTempFile("temp_epub", ".epub", context.cacheDir)
             context.contentResolver.openInputStream(epubUri)?.use { input ->
-                FileOutputStream(tempFile).use { output ->
-                    input.copyTo(output)
-                }
+                FileOutputStream(tempFile).use { output -> input.copyTo(output) }
             } ?: return "Ошибка: не удалось открыть EPUB"
 
             Log.d("DEBUGGIE", "Файл скопирован: ${tempFile.absolutePath}")
 
-            // 2. Настраиваем ридер
             val reader = Reader()
-            reader.setMaxContentPerSection(5000)  // Больше символов в секции
+            reader.setMaxContentPerSection(5000)
             reader.setIsIncludingTextContent(true)
             reader.setFullContent(tempFile.absolutePath)
 
-            Log.d("DEBUGGIE", "EPUB загружен, начинаем чтение секций...")
-
-            // 3. Читаем ВСЕ секции, пока не выйдет ошибка
-            val textContent = StringBuilder()
+            val textContent = mutableListOf<String>()
             var sectionIndex = 0
-            var emptySectionCount = 0  // Считаем подряд идущие пустые секции
+            var prevText = ""
 
             while (true) {
                 try {
-                    val section = reader.readSection(sectionIndex)  // Читаем секцию
-                    val sectionText = section?.sectionTextContent  // Получаем текст
+                    val section = reader.readSection(sectionIndex)
+                    val sectionText = section?.sectionTextContent
+                        ?.split(Regex("\\s+"))  // Разбиваем по пробелам и скрытым символам
+                        ?.joinToString(" ")     // Соединяем слова через пробел
+                        ?.trim() ?: ""
+ 
 
-                    if (!sectionText.isNullOrBlank()) {
-                        // Если есть текст, добавляем в итоговый результат
-                        textContent.append(sectionText).append("\n\n")
-                        Log.d("DEBUGGIE", "Секция $sectionIndex загружена, размер: ${sectionText.length} символов")
-
-                        emptySectionCount = 0  // Обнуляем счётчик пустых секций
+                    if (sectionText.isNotBlank() && sectionText != prevText) {
+                        textContent.add(sectionText)
+                        prevText = sectionText  // Запоминаем предыдущую секцию
+                        Log.d("DEBUGGIE", "Секция $sectionIndex загружена, длина: ${sectionText.length}")
                     } else {
-                        // Если секция пустая, увеличиваем счётчик
-                        Log.d("DEBUGGIE", "Секция $sectionIndex пустая, пропускаем...")
-                        emptySectionCount++
+                        Log.d("DEBUGGIE", "Секция $sectionIndex дублируется или пустая")
                     }
 
                     sectionIndex++
-
-                    // Если встречаем 10 пустых секций подряд — скорее всего, книга закончилась
-                    if (emptySectionCount >= 10) {
-                        Log.d("DEBUGGIE", "10 пустых секций подряд, вероятно конец книги")
-                        break
-                    }
+                    if (sectionIndex >= 100) break  // Ограничение на случай ошибок
                 } catch (e: IndexOutOfBoundsException) {
-                    Log.d("DEBUGGIE", "Достигнут конец книги на секции $sectionIndex")
+                    Log.d("DEBUGGIE", "Конец книги на секции $sectionIndex")
                     break
                 } catch (e: Exception) {
                     Log.e("DEBUGGIE", "Ошибка при чтении секции $sectionIndex: ${e.localizedMessage}", e)
@@ -290,14 +284,30 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            // 4. Возвращаем текст или сообщение об ошибке
-            return if (textContent.isNotEmpty()) textContent.toString() else "Ошибка: книга пустая или не распознана"
+            return if (textContent.isNotEmpty()) textContent.joinToString("\n\n") else "Ошибка: книга пустая"
         } catch (e: Exception) {
             Log.e("DEBUGGIE", "Ошибка при чтении EPUB: ${e.localizedMessage}", e)
             "Ошибка при чтении EPUB"
         }
     }
 
+    @Composable
+    fun NavigationButtons(
+        onPrevious: () -> Unit,
+        onNext: () -> Unit
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            Button(onClick = onPrevious) {
+                Text("Назад")
+            }
+            Button(onClick = onNext) {
+                Text("Вперёд")
+            }
+        }
+    }
 
 
 
