@@ -1,6 +1,6 @@
 package com.example.superreaderk
 
-//import com.github.mertakdut.Book
+
 import android.content.Context
 import android.net.Uri
 import android.os.Bundle
@@ -38,7 +38,6 @@ import com.github.mertakdut.Reader
 import kotlinx.coroutines.delay
 import java.io.File
 import java.io.FileOutputStream
-import org.jsoup.Jsoup
 
 
 class MainActivity : ComponentActivity() {
@@ -47,14 +46,14 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             SuperReaderKTheme {
-                // A surface container using the 'background' color from the theme
+                
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
                     var isReadingVisible by remember { mutableStateOf(false) }
-                    //var isPaused by remember { mutableStateOf(false) } // Состояние паузы
-                    // Основной UI
+                    
+                    
                     fileWriter(data = elem.toString(), fileName = "nigger.txt")
                     Column(
                         modifier = Modifier.fillMaxSize(),
@@ -62,7 +61,7 @@ class MainActivity : ComponentActivity() {
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Slider()
-                        // Кнопка для запуска Reading
+                        
                         if (isReadingVisible) {
                             Reading(pose = pos)
                             Button(onClick = { isPaused = !isPaused }) {
@@ -75,24 +74,24 @@ class MainActivity : ComponentActivity() {
                             } else {
                                 Text("Начать чтение")
                             }
-                            //isPaused = false
+                            
                         }
 
                         Spacer(modifier = Modifier.height(16.dp))
                         EpubReader()
                         Spacer(modifier = Modifier.height(128.dp))
-                        //if(prevMS == maxSections)
+                        
 
                     }
                 }
             }
         }
     }
-    var book: String = "" //"Lorem ipsum is a dummy text. Not much to know about it. A guy in 1500s or like that invented it to test his fonts. It remains popular to these days." //fileContent
+    var book: String = "" 
     var pos: Long by mutableStateOf(100)
     var elem: Int = 0
     var isPaused by mutableStateOf(false)
-    //var currentSectionIndex = 0
+    
 
 
     var fileContent: String by mutableStateOf("")
@@ -127,8 +126,8 @@ class MainActivity : ComponentActivity() {
     @Composable
     fun EpubReader() {
         val context = LocalContext.current
-        //val cs = rememberCoroutineScope()
-        //var fileContent by remember { mutableStateOf("") }  // Состояние для контента книги
+        
+        
 
         EpubPicker { uri ->
             Log.d("DEBUGGIE", "LOG 1")
@@ -136,8 +135,8 @@ class MainActivity : ComponentActivity() {
                 Log.d("DEBUGGIE", "LOG 2")
                 Log.d("DEBUGGIE", "EPUB URI: $it")
 
-                //cs.launch {
-                    // Получаем текст из EPUB по URI и обновляем состояние
+                
+                    
                 try {
                     Log.d("DEBUGGIE", "EPUB URI: $it")
                     var text = extractTextFromEPUB(context, it)
@@ -147,14 +146,14 @@ class MainActivity : ComponentActivity() {
                 } catch (e: Exception) {
                     Log.e("DEBUGGIE", "Error reading EPUB: ${e.localizedMessage}", e)
                 }
-                //}
+                
             }
         }
     }
 
 
-    //var bufferVar = ""
-    //var counter = 0
+    
+    
 
     @Composable
     fun Slider() {
@@ -163,7 +162,7 @@ class MainActivity : ComponentActivity() {
             value = position,
             onValueChange = { position = it },
             valueRange = 100f..2000f,
-            steps = ((2000 - 100) / 50).toInt() - 1, // Дискретные шаги
+            steps = ((2000 - 100) / 50).toInt() - 1, 
             modifier = Modifier.padding(20.dp)
         )
         Text(text = "Интервал: ${position.toLong()} мс")
@@ -174,8 +173,8 @@ class MainActivity : ComponentActivity() {
     @Composable
     fun Reading(pose: Long, modifier: Modifier = Modifier) {
         var disp by remember { mutableStateOf("") }
-        var currentSectionIndex by remember { mutableStateOf(0) } // Индекс текущей секции
-        val splittedSections = book.split("\n\n") // Разделяем книгу на секции
+        var currentSectionIndex by remember { mutableStateOf(0) } 
+        val splittedSections = book.split("\n\n") 
 
         LaunchedEffect(currentSectionIndex) {
             val words = splittedSections.getOrNull(currentSectionIndex)?.split(' ', '.') ?: listOf()
@@ -185,7 +184,7 @@ class MainActivity : ComponentActivity() {
                 if (!isPaused) {
                     disp = words[localIndex]
                     localIndex++
-                    elem = localIndex // Обновляем глобальную переменную
+                    elem = localIndex 
                 }
                 delay(pose)
             }
@@ -203,12 +202,12 @@ class MainActivity : ComponentActivity() {
             NavigationButtons(
                 onPrevious = {
                     if (currentSectionIndex > 0) {
-                        currentSectionIndex-- // Переход назад
+                        currentSectionIndex-- 
                     }
                 },
                 onNext = {
                     if (currentSectionIndex < splittedSections.size - 1) {
-                        currentSectionIndex++ // Переход вперёд
+                        currentSectionIndex++ 
                     }
                 }
             )
@@ -226,15 +225,15 @@ class MainActivity : ComponentActivity() {
 
     private fun saveToFile(context: Context, fileName: String, data: String) {
         try {
-            // Открываем файл для записи
+            
             context.openFileOutput(fileName, MODE_PRIVATE).use { outputStream ->
                 outputStream.write(data.toByteArray())
             }
         } catch (e: Exception) {
-            e.printStackTrace() // Логирование ошибки
+            e.printStackTrace() 
         }
     }
-    //var sectionIndex = 0
+    
 
     fun extractTextFromEPUB(context: Context, epubUri: Uri): String {
         return try {
@@ -260,21 +259,21 @@ class MainActivity : ComponentActivity() {
                 try {
                     val section = reader.readSection(sectionIndex)
                     val sectionText = section?.sectionTextContent
-                        ?.split(Regex("\\s+"))  // Разбиваем по пробелам и скрытым символам
-                        ?.joinToString(" ")     // Соединяем слова через пробел
+                        ?.split(Regex("\\s+"))  
+                        ?.joinToString(" ")     
                         ?.trim() ?: ""
  
 
                     if (sectionText.isNotBlank() && sectionText != prevText) {
                         textContent.add(sectionText)
-                        prevText = sectionText  // Запоминаем предыдущую секцию
+                        prevText = sectionText  
                         Log.d("DEBUGGIE", "Секция $sectionIndex загружена, длина: ${sectionText.length}")
                     } else {
                         Log.d("DEBUGGIE", "Секция $sectionIndex дублируется или пустая")
                     }
 
                     sectionIndex++
-                    if (sectionIndex >= 100) break  // Ограничение на случай ошибок
+                    if (sectionIndex >= 100) break  
                 } catch (e: IndexOutOfBoundsException) {
                     Log.d("DEBUGGIE", "Конец книги на секции $sectionIndex")
                     break
